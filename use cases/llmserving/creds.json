@@ -1,0 +1,9 @@
+{
+    "account": "X",
+    "username": "X",
+    "password": "X",
+    "database": "RAY_DB",
+    "schema": "RAY_SCHEMA",
+    "role": "RAY_ROLE",
+    "warehouse": "RAY_WH"
+}

@@ -1,0 +1,147 @@
+Metadata-Version: 2.1
+Name: snowflakeray
+Version: 1.0.0
+Summary: Sets up Distributed Ray on SPCS
+Author: Puneet Lakhanpal
+Author-email: puneet.lakhanpal@snowflake.com
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: snowflake==0.6.0
+Requires-Dist: snowflake-snowpark-python[pandas]==1.13.0
+Requires-Dist: importlib_resources==6.3.0
+
+# Set up Distributed Ray on SPCS with ease
+
+Note: This library is not officially supported by Snowflake Support. This is just a demonstration of how we can deploy custom apps into Snowpark Container Services.
+
+### Prerequisites
+
+```
+alter account esb72728 set ENABLE_SNOWSERVICES_ENDPOINT_PORT_RANGE=true parameter_comment='enable port ranges for testing' jira_reference='SNOW-994514';
+alter account esb72728 set DISPLAY_PORT_RANGE_COLUMN_FOR_SHOW_ENDPOINTS=true parameter_comment='enable port ranges for testing' jira_reference='SNOW-994514';
+alter account esb72728 set DISPLAY_NON_OPTIONAL_PORT_COLUMN_FOR_SHOW_ENDPOINTS=false parameter_comment='enable port ranges for testing' jira_reference='SNOW-994514';
+```
+
+### Step 0 (a): Create conda environment or virtualenv environment and install libraries
+
+```
+conda create -n snowflakeray python=3.11
+conda activate snowflakeray
+pip install "snowflake-snowpark-python[pandas]"
+pip install ./dist/snowflakeray-1.0.0-py3-none-any.whl
+```
+
+### Step 0 (b): Run the prerequisites script
+Run the code in `use cases/setup-ray-prerequisites.sql`.
+
+### Step 1: Refer to sample notebook
+
+See notebook `use cases/audioprocessing/setup-ray-for-audio-processing.ipynb` as an example. 
+
+Put your credentials in `use cases/audioprocessing/creds.json`.
+
+### Step 1(a): Set project_name:
+```
+project_name = "audio processing"
+```
+### Step 1(b): Initialize
+```
+snowflake_ray = SnowflakeRay(session=session, project_name=project_name)
+```
+#### Step 1(c.1): To start CPU based nodes, run:
+endpoints = snowflake_ray.setup_ray_cluster(compute_pool_type="CPU", num_worker_nodes=4, requested_num_head_cores=32, requested_num_worker_cores=32, stage_name_for_specs="RAY_SPECS", stage_name_for_artifacts="ARTIFACTS", external_access_integrations=["ALLOW_ALL_EAI"], need_block_storage_for_ray_logs=True, pip_requirements=[], ray_requirements=[])
+
+#### Step 1(c.2): To start GPU based nodes, run for example below:
+
+endpoints = snowflake_ray.setup_ray_cluster(compute_pool_type="GPU", num_worker_nodes=4, requested_num_head_gpus=1, requested_num_worker_gpus=1, stage_name_for_specs="RAY_SPECS", stage_name_for_artifacts="ARTIFACTS", external_access_integrations=["ALLOW_ALL_EAI"], need_block_storage_for_ray_logs=True,
+                              ray_requirements=["ray[data]==2.9.3", "ray[client]==2.9.3", "ray[default]==2.9.3", "ray[serve]==2.9.3", "ray[train]==2.9.3"],
+                              pip_requirements=["jupyterlab", "py-spy", "ipywidgets", "virtualenv", "starlette<=0.34.0", "datasets", "numpy", "transformers", "torch==2.0.1", "evaluate", "accelerate", "datasets[audio]", "optimum", "tokenizers", "pandas==1.5.3"])
+
+##### Things to note:
+* Block storage PrPr is optional here. you can add or remove need_block_storage_for_ray_logs parameter. If need_block_storage_for_ray_logs = True, it automatically uses SPCS block storage for storing Ray metrics. If the parameter is omitted, regular SPCS S3 backed storage is used. Ray dashboard metrics load much faster with SPCS block storage, so SPCS block storage PrPr is recommended.
+* If pip_requirements list is left empty or pip_requirements parameter is not provided, it will automatically install ["jupyterlab", "pandas", "py-spy", "ipywidgets", "virtualenv", "starlette<=0.34.0"]
+* If ray_requirements list is left empty or ray_requirements parameter is not provided, it will automatically install 
+["ray[data]==2.9.3", "ray[client]==2.9.3", "ray[default]==2.9.3", "ray[serve]==2.9.3"]
+* Use the password admin to login into jupyter notebook url.
+* Use admin username and admin password to login into grafana url.
+
+#### Step 1(d): Visit jupyter notebook
+Once the snowflake_ray.setup_ray_cluster command is run, it will spit out endpoints for notebook. Use that public endpoint and login into jupyter. Use admin as the password.
+
+#### Step 1(e): Upload sample notebooks
+Upload the content from `use cases/audioprocessing/notebooks` folder into the jupyter service hosted in SPCS under the path `/home/jupyter`. This path is a persistent path and the content in this folder is backed by a snowflake stage. Even after the compute pools or services are destroyed, the snowflake stage and the content within the stage stays as designed.
+
+Then do the following:
+* Run `Cleaup.ipynb`
+* Get a terminal within the jupyter service and then run 
+  * Run `wget https://us.openslr.org/resources/12/dev-clean.tar.gz` to download the data or download the file and upload into jupyter service.
+  * Perform `tar -xvzf dev-clean.tar.gz` command on the terminal within jupyter service.
+* For batch audio processing, run `Whisper Automatic Speech Recognition.ipynb`
+* For REST API:
+  * Run `Ray Serve API Setup.ipynb` for setting up the Ray Serve API
+  * For local testing of the REST API: Run `Ray Serve API Local Test.ipynb`
+  * For external endpoint testing of the REST API: Get the endpoint URL printed for `api` in the notebook from where ray setup was triggered and replace that as `https://<ENDPOINT>/predict` within the notebook `Ray Serve API External Test.ipynb`. Then run this notebook on the jupyter service.
+
+
+### Setup from aa AWS EC2 machine (ubuntu based)
+#### Connect
+Connect via AWS SSM
+#### Update and install aws cli and anaconda
+
+```sudo apt-get update
+sudo apt-get install unzip
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+aws configure sso
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+. ~/.bashrc
+```
+
+#### Update and install docker
+
+```sudo apt-get update && sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl start docker
+sudo docker run hello-world
+sudo systemctl enable docker
+sudo usermod -a -G docker $(whoami)
+```
+
+#### Logout and log back in
+In order for docker to take effect, we need to logout and log back in. Run `docker info` to make sure docker installation worked.
+
+#### Download ray specific code and install
+There are two options now to get code inside this AWS EC2. 
+##### Easier option:
+Create a AWS S3 bucket in the same region as EC2. Lets call it bucketx. Then upload `creds.json`, `setup-ray-for-llmserving.py` and `snowflakeray-1.0.0-py3-none-any.whl` inside that bucketx and then use aws cli as below in the EC2 machine.
+```
+aws s3api get-object --bucket bucketx --key creds.json creds.json
+aws s3api get-object --bucket bucketx --key setup-ray-for-llmserving.py setup-ray-for-llmserving.py
+aws s3api get-object --bucket bucketx --key snowflakeray-1.0.0-py3-none-any.whl snowflakeray-1.0.0-py3-none-any.whl
+```
+conda activate snowflakeray
+python setup-ray.py
+##### Difficult option
+Setup SSH to connect via AWS SSM on your local machine: https://dev.to/aws-builders/how-to-set-up-session-manager-and-enable-ssh-over-ssm-43k9 and then upload `creds.json`, `setup-ray-for-llmserving.py` and `snowflakeray-1.0.0-py3-none-any.whl` using scp.
+
+##### Trigger Ray setup from AWS EC2
+
+```
+conda create -n snowflakeray python=3.11
+conda activate snowflakeray
+pip install snowflakeray-1.0.0-py3-none-any.whl
+```
+Then update creds.json with your credentials. Assuming prerequisities in `setup-ray-prerequisites.sql` have been executed, now we can trigger ray setup using the command 
+```
+python setup-ray-for-llmserving.py
+```

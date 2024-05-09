@@ -1,0 +1,52 @@
+spec:
+  containers:
+  - name: "${ray_worker_container_name}"
+    image: "${ray_worker_full_image_name}"
+    volumeMounts:
+    - name: dshm
+      mountPath: /dev/shm
+    - name: artifacts
+      mountPath: /home/artifacts
+    env:
+        RAY_HEAD_ADDRESS: "${ray_head_service_name}:6379"
+    resources:
+      requests:
+        memory: "${instance_available_memory_for_ray}"
+  volumes:
+  - name: dshm
+    source: memory
+    size: "${dshm_memory}"
+  - name: artifacts
+    source: "${artifacts_stage}"
+  endpoints:
+  - name: notebook
+    port: 8888
+    public: true
+  - name: object-manager-port
+    port: 8076
+    protocol: TCP
+    public: false
+  - name: node-manager-port
+    port: 8077
+    protocol: TCP
+    public: false
+  - name: dashboard-agent-grpc-port
+    port: 8079
+    protocol: TCP
+    public: false
+  - name: dashboard-agent-listen-port
+    port: 8081
+    protocol: TCP
+    public: false
+  - name: metrics-export-port
+    port: 8082
+    protocol: TCP
+    public: false
+  - name: worker-ports
+    portRange: 10002-19999
+    protocol: TCP
+  - name: ephemeral-port-range
+    portRange: 32768-60999
+    protocol: TCP
+  networkPolicyConfig:
+    allowInternetEgress: true

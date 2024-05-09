@@ -1,0 +1,6 @@
+recursive-include src/snowflakeray/docker_context_dir/grafana/ *
+recursive-include src/snowflakeray/docker_context_dir/prometheus/ *
+recursive-include src/snowflakeray/docker_context_dir/ray_base/ *
+recursive-include src/snowflakeray/docker_context_dir/ray_head/ *
+recursive-include src/snowflakeray/docker_context_dir/ray_worker/ *
+recursive-include src/snowflakeray/docker_context_dir/specs/ *

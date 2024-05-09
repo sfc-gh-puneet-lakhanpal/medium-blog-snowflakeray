@@ -1,0 +1,6 @@
+jupyterlab
+pandas
+py-spy
+ipywidgets
+virtualenv
+starlette<=0.34.0

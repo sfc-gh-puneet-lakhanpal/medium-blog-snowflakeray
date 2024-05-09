@@ -1,0 +1,101 @@
+spec:
+  containers:
+  - name: "${ray_head_container_name}"
+    image: "${ray_head_full_image_name}"
+    volumeMounts:
+    - name: dshm
+      mountPath: /dev/shm
+    - name: raylogs
+      mountPath: /raylogs
+    - name: artifacts
+      mountPath: /home/artifacts
+    env:
+      ENV_RAY_GRAFANA_HOST: "http://${ray_head_service_name}:3000"
+      ENV_RAY_PROMETHEUS_HOST: "http://${ray_head_service_name}:9090"
+      AUTOSCALER_METRIC_PORT: "8083"
+      DASHBOARD_METRIC_PORT: "8084"
+    resources:
+      requests:
+        memory: "${instance_available_memory_for_ray}"
+  - name: "${ray_prometheus_container_name}"
+    image: "${ray_prometheus_full_image_name}"
+    volumeMounts:
+    - name: raylogs
+      mountPath: /raylogs
+  - name: "${ray_grafana_container_name}"
+    image: "${ray_grafana_full_image_name}"
+    volumeMounts:
+    - name: raylogs
+      mountPath: /raylogs
+  volumes:
+  - name: dshm
+    source: memory
+    size: "${dshm_memory}"
+  - name: raylogs
+    source: "${raylogssource}"
+    ${raylogssourcesize}
+  - name: artifacts
+    source: "${artifacts_stage}"
+  endpoints:
+  - name: api
+    port: 8000
+    public: true
+  - name: notebook
+    port: 8888
+    public: true
+  - name: ray-gcs-server-port
+    port: 6379
+    protocol: TCP
+    public: false
+  - name: ray-client-server-port
+    port: 10001
+    public: true
+  - name: prometheus
+    port: 9090
+    public: true
+  - name: grafana
+    port: 3000
+    public: true
+  - name: ray-dashboard
+    port: 8265
+    public: true
+  - name: object-manager-port
+    port: 8076
+    protocol: TCP
+    public: false
+  - name: node-manager-port
+    port: 8077
+    protocol: TCP
+    public: false
+  - name: dashboard-agent-grpc-port
+    port: 8079
+    protocol: TCP
+    public: false
+  - name: dashboard-grpc-port
+    port: 8080
+    protocol: TCP
+    public: false
+  - name: dashboard-agent-listen-port
+    port: 8081
+    protocol: TCP
+    public: false
+  - name: metrics-export-port
+    port: 8082
+    protocol: TCP
+    public: false
+  - name: autoscaler-metric-port
+    port: 8083
+    protocol: TCP
+    public: false
+  - name: dashboard-metric-port
+    port: 8084
+    protocol: TCP
+    public: false
+  - name: worker-ports
+    portRange: 10002-19999
+    protocol: TCP
+  - name: ephemeral-port-range
+    portRange: 32768-60999
+    protocol: TCP
+  networkPolicyConfig:
+    allowInternetEgress: true
